@@ -1,6 +1,6 @@
 <img src="ndlbanner.png" width="405" height="96">
 
-# Networked Data Lab: NDL North West London analysis on *[please fill in]*
+# Networked Data Lab: NDL Wales analysis on *[please fill in]*
 
 #### Project Status: Completed
 
