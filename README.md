@@ -17,9 +17,15 @@ This analysis used the following data: *[please fill in]*
 - [External data source 1](www.google.com)
 - [External data source 2](www.google.com)
 
+## How does it work?
+
 ## Requirements
 
 These scripts were written in *[please fill in]*.
+
+## Getting started
+
+A short description of what each code does, and what each file is. *[please fill in]*.
 
 ## Authors
 
