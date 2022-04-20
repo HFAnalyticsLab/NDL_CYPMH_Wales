@@ -6,7 +6,7 @@
 
 ## Project Description
 
-- This Networked Data Lab analysis by the NDL lab in North West London focusses on *[please fill in]*.
+- This Networked Data Lab analysis by the NDL lab in Wales focusses on *[please fill in]*.
 - Please note that these research outputs have not yet been peer-reviewed and should be treated as preliminary.
 
 ## Data sources
