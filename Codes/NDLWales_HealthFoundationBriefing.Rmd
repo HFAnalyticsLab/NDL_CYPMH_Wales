@@ -1,0 +1,407 @@
+---
+title: "NDL Wales analysis for Health Foundation briefing"
+author: "David Florentin"
+date: "04/05/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Throughout this document 'events' refers to the combined acute care services mental health events dataset.
+
+
+```{r packages}
+
+library(tidyr)
+library(dplyr)
+library(lubridate)
+library(plotly)
+library(ggplot2)
+library(RODBC)
+
+```
+
+
+```{r connections}
+
+getLogin<-function(userName=''){ 
+  require(tcltk); 
+  wnd<-tktoplevel();
+  tclVar(userName)->user;
+  tclVar("")->passVar;
+  #Label 
+  
+  #Username box 
+  tkgrid(tklabel(wnd,text="Username:")); 
+  tkgrid(tkentry(wnd,textvariable=user)->passBox); 
+  
+  #Password box 
+  tkgrid(tklabel(wnd,text="Password:")); 
+  tkgrid(tkentry(wnd,textvariable=passVar,show="*")->passBox); 
+  #Hitting return will also submit password 
+  tkbind(passBox,"<Return>",function() tkdestroy(wnd)); 
+  #OK button 
+  tkgrid(tkbutton(wnd,text="OK",command=function() tkdestroy(wnd))); 
+  #Wait for user to click OK 
+  tkwait.window(wnd); 
+  password<-tclvalue(passVar);
+  userName<-tclvalue(user);
+  return(c(userName,password)); 
+} 
+
+#Get the login info.
+login <- getLogin('');
+
+#Connect to the database.
+sql <- odbcConnect('PR_SAIL',login[1],login[2]);
+
+#delete username and password so they aren't hanging around.
+login <- '';
+
+################################################################################
+
+```
+
+
+```{r load_data}
+
+#cohort data: one row for each continuous time period a person appears in the dataset.
+raw_cohort <- sqlQuery(sql, "select * FROM SAILW1330V.DF_COHORT_LONG")
+
+#AMPDS code lookup
+raw_lku_ampds <- sqlQuery(sql, "select * from SAILW1330V.LB_AMPDS_MH_CODES")
+
+#WAST case list
+raw_wast_cases <- sqlQuery(sql, "select * from SAILW1330V.DF_WASTCASES_F")
+
+#HB/LSOA lookup
+raw_lku_hb <- read.csv('./raw_data/lsoa_hb_lku.csv')
+
+#combined acute care services (wast/ed/pedw) event list
+raw_events <- sqlQuery(sql, "select * from sailw1330v.df_events1")
+
+
+```
+
+
+#clean column names and add variables
+```{r format_data}
+
+raw_cohort %>%
+  mutate(cohortyr = year(START_DATE1),
+                       AGEGPFORYR = cut(AGEFORYR, breaks = c(10,15,19,25),
+                                        labels = c('11-15', '16-19', '20-24'),
+                                        ordered_result = T),
+                       GNDR_CD = factor(GNDR_CD, labels = c('male','female')),
+                       OVERALL_QUINTILE = factor(OVERALL_QUINTILE, levels = c(1:5), ordered = T),
+                       RUC11CD = factor(if_else(RUC11CD %in% c('C1','C2'), 'urban', 'rural'))) %>%
+  select(ALF_PE, GNDR_CD, WOB, START_DATE1, END_DATE2, AGEFORYR, AGEGPFORYR, PERSONDAYS,
+         LSOA2011_CD, OVERALL_QUINTILE, RUC11CD) %>% 
+  rename(alf_pe = ALF_PE, wob = WOB, startdate = START_DATE1, enddate = END_DATE2,
+         persondays = PERSONDAYS, agegp_for_yr = AGEGPFORYR, age_for_yr = AGEFORYR,
+         lsoa2011_cd = LSOA2011_CD, gndr_cd = GNDR_CD, wimd_quintile = OVERALL_QUINTILE,
+         urb_rur = RUC11CD) -> cohort_long
+
+
+#Clean health board lookup table and attach to cohort
+raw_lku_hb %>% rename(lsoa_cd = Lower.Layer.Super.Output.Area..LSOA..Code, lsoa_name = LSOA.Name,
+                      hb_cd = Local.Health.Board..LHB..Code, hb_name = Local.Health.Board..LHB..Name) -> lku_hb
+
+cohort_long %>% left_join(lku_hb, by = c('lsoa2011_cd' = 'lsoa_cd')) -> cohort_long
+
+
+#clean WAST AMPDS code lookup table
+lku_ampds <- raw_lku_ampds
+colnames(lku_ampds) <- tolower(colnames(raw_lku_ampds))
+
+#clean wast cases
+wast_cases <- raw_wast_cases
+colnames(wast_cases) <- tolower(colnames(raw_wast_cases))
+
+wast_cases %>% 
+  #create outcome
+  mutate(outcome = 
+           case_when(
+             dc_desc == 'dc clin approved' ~ 'ED -> discharge',
+             dc_desc == 'admitted TO hospital' ~ 'ED -> admitted',
+             dc_desc == 'self-discharge' ~ 'ED -> self-discharge',
+             dc_desc == 'Unknown' ~ 'ED -> unknown',
+             incidentstop_cd == 'PRTR' ~ 'Refused treatment',
+             incidentstop_cd %in% c('RNCO','POLD',"PROH","PMON","PREF", "PSYC", "HCAR",
+                                    "CCCD" , "P136",  "PDET", "ROLE","SOCI",  "SICAT",
+                                    "HYPO",  "PCON" ,"PRSP"  ,"PIMP") ~ 'No need to transfer'),
+         outcome = if_else(is.na(outcome), 'Unknown', outcome),
+         OOH = case_when(strftime(incident_dttm, '%A') %in% c('Saturday','Sunday') ~ 'OOH',
+                         format(incident_dttm, format = "%H:%M:%S") < format("08:00:00", format='%H:%M:%S') ~ 'OOH',
+                         format(incident_dttm, format = "%H:%M:%S") > format("18:30:00", format='%H:%M:%S') ~ 'OOH'),
+         OOH = if_else(is.na(OOH), 'IH', 'OOH')) %>%
+  left_join(lku_ampds, by = c('dispatch_cd_andsuffix' = 'ampds_cd')) %>% 
+  mutate(ampds_type = case_when(
+    grepl('^09', dispatch_cd_andsuffix) ~ 'hanging09',
+    grepl('^17', dispatch_cd_andsuffix) ~ 'fall17',
+    grepl('^23', dispatch_cd_andsuffix) ~ 'overdose23',
+    grepl('^25', dispatch_cd_andsuffix) ~ 'psyc25',)) %>%
+  #add fields from cohort_long
+  left_join(cohort_long, by = c('alf_pe')) %>%
+  filter(incident_dt >= startdate & incident_dt <= enddate)  %>%
+  mutate(yr = year(incident_dt)) %>% 
+  select(pcr, incidentid_pe, alf_pe, gndr_cd, wob, yr, incident_dttm, incident_end_dttm, incident_dt,
+         dispatch_cd_andsuffix, description, incidentstop_cd, incidentstop_cd_desc, outcome, ampds_type, OOH, wast_mh_week_rpt, wast_mh_mth_rpt,
+         wast_any_week_rpt, wast_any_mth_rpt, dc_cd, dc_desc, gp_fu30any_dt, startdate, enddate,
+         age_for_yr, agegp_for_yr, persondays, lsoa2011_cd, lsoa_name, wimd_quintile, urb_rur, hb_cd, hb_name) -> wast_cases
+
+
+
+#format events
+events <- raw_events
+colnames(events) <- tolower(colnames(raw_events))
+
+events %>% 
+  rename(event_start_dt = startdate1, event_end_dt = enddate1) %>%
+  left_join(cohort_long, by = c('alf_pe')) %>% 
+  filter(event_start_dt >= startdate & event_start_dt <= enddate) %>%
+  mutate(yr = year(event_start_dt),
+         event_id = row_number()) %>% 
+  select(-id, event_id, alf_pe, yr, event_start_dt:hb_name) -> events
+
+
+
+```
+
+##create cohort dataset for analysis: 1 row per ALF and year
+```{r}
+
+#group so one row per alf/yr
+events %>% mutate(yr = year(event_start_dt), event = 1) %>%  group_by(alf_pe, yr) %>% 
+  summarise(events = sum(event), first_event = min(event_start_dt)) -> events_agg
+
+#group so one row per alf/yr
+cohort_long %>%
+  mutate(yr = year(startdate)) %>% 
+  group_by(alf_pe, gndr_cd, wob, yr, age_for_yr, agegp_for_yr, lsoa2011_cd,wimd_quintile, urb_rur, hb_cd, hb_name) %>% 
+  summarise(persondays = sum(persondays)) %>% 
+  mutate(PYAR = persondays/(if_else(yr %% 4 == 0, 366,365))) %>% 
+  select(-persondays) %>% 
+  left_join(events_agg, by = c('alf_pe', 'yr')) %>% 
+  mutate(events = if_else(is.na(events), 0, as.numeric(events))) -> cohort_events_alfyr
+
+
+```
+
+
+
+
+*Acute care services combined mental health case analysis*
+
+Calculate numerators for year age, sex, wimd, ruc , hb, sms:
+```{r}
+
+events %>% group_by(yr) %>% summarise(events = n()) -> xe_totalEvents
+
+events %>% group_by(yr, first_service) %>% summarise(events = n()) %>% 
+  spread(first_service, events) -> xe_firstservice
+
+events %>% group_by(yr, gndr_cd) %>% summarise(events = n()) %>% 
+  spread(gndr_cd, events) -> xe_sex
+
+events %>% group_by(yr, agegp_for_yr) %>% summarise(events = n()) %>% 
+  spread(agegp_for_yr, events) -> xe_agegp
+
+events %>% group_by(yr, wimd_quintile) %>% summarise(events = n()) %>% 
+  spread(wimd_quintile, events) %>%
+  rename(wimd1 = '1', wimd2 = '2', wimd3 = '3', wimd4 = '4', wimd5 = '5') -> xe_wimd
+
+events %>% group_by(yr, urb_rur) %>% summarise(events = n()) %>% 
+  spread(urb_rur, events) -> xe_urbrur
+
+events %>% group_by(yr, hb_name) %>% summarise(events = n()) %>% 
+  spread(hb_name, events) %>% 
+  rename(powys = 'Powys Teaching Health Board', bcu = 'Betsi Cadwaladr University Health Board', hduhb = 'Hywel Dda University Health Board', 
+         sbuhb = 'Swansea Bay University Health Board', cavuhb = 'Cardiff and Vale University Health Board',
+         abuhb = 'Aneurin Bevan University Health Board', cwmtaf = 'Cwm Taf Morgannwg University Health Board') -> xe_hb
+
+  
+xe_totalEvents %>% inner_join(xe_firstservice) %>% inner_join(xe_sex) %>% inner_join(xe_agegp) %>%
+  inner_join(xe_wimd) %>% inner_join(xe_hb) %>% inner_join(xe_urbrur) -> eventsCountTab
+
+eventsCountTab
+
+
+```
+
+Person time denom per year, age, sex, wimd, ruc , hb, sms:
+```{r}
+
+cohort_events_alfyr %>% group_by(yr) %>% summarise(PYAR = sum(PYAR)) -> xtotalPYAR
+
+cohort_events_alfyr %>% group_by(yr, gndr_cd) %>% summarise(PYAR = sum(PYAR)) %>% 
+  spread(gndr_cd, PYAR) -> xsex
+
+cohort_events_alfyr %>% group_by(yr, agegp_for_yr) %>% summarise(PYAR = sum(PYAR)) %>% 
+  spread(agegp_for_yr, PYAR) -> xagegp
+
+cohort_events_alfyr %>% group_by(yr, wimd_quintile) %>% summarise(PYAR = sum(PYAR)) %>% 
+  spread(wimd_quintile, PYAR) %>%
+  rename(wimd1 = '1', wimd2 = '2', wimd3 = '3', wimd4 = '4', wimd5 = '5') -> xwimd
+
+cohort_events_alfyr %>% group_by(yr, urb_rur) %>% summarise(PYAR = sum(PYAR)) %>% 
+  spread(urb_rur, PYAR) -> xurbrur
+
+cohort_events_alfyr %>% group_by(yr, hb_name) %>% summarise(PYAR = sum(PYAR)) %>% 
+  spread(hb_name, PYAR) %>% 
+  rename(powys = 'Powys Teaching Health Board', bcu = 'Betsi Cadwaladr University Health Board', hduhb = 'Hywel Dda University Health Board', 
+         sbuhb = 'Swansea Bay University Health Board', cavuhb = 'Cardiff and Vale University Health Board',
+         abuhb = 'Aneurin Bevan University Health Board', cwmtaf = 'Cwm Taf Morgannwg University Health Board') -> xhb
+  
+xtotalPYAR %>% inner_join(xsex) %>% inner_join(xagegp) %>% inner_join(xwimd) %>% inner_join(xhb) %>% inner_join(xurbrur) -> cohortDenomTab
+
+cohortDenomTab
+
+
+
+```
+
+Calculate rates table based on eventsCountTab and cohortDenomTab
+```{r}
+
+eventsCountTab %>% 
+  inner_join(cohortDenomTab, by = 'yr') %>%
+  mutate(rate = events/PYAR*1000,
+         male = male.x/male.y*1000,
+         female = female.x/female.y*1000,
+         age11_15 = `11-15.x`/`11-15.y`*1000,
+         age16_19 = `16-19.x`/`16-19.y`*1000,
+         age20_24 = `20-24.x`/`20-24.y`*1000,
+         wimd1 = wimd1.x/wimd1.y * 1000,
+         wimd2 = wimd2.x/wimd2.y * 1000,
+         wimd3 = wimd3.x/wimd3.y * 1000,
+         wimd4 = wimd4.x/wimd4.y * 1000,
+         wimd5 = wimd5.x/wimd5.y * 1000,
+         urban = urban.x/urban.y *1000,
+         rural = rural.x/rural.y *1000,
+         bcu = bcu.x/bcu.y * 1000,
+         cwmtaf = cwmtaf.x/cwmtaf.y * 1000,
+         abuhb = abuhb.x/abuhb.y * 1000,
+         powys = powys.x/powys.y * 1000,
+         hduhb = hduhb.x/hduhb.y * 1000,
+         sbuhb = sbuhb.x/sbuhb.y * 1000,
+         cavuhb = cavuhb.x/cavuhb.y * 1000) %>% 
+  select(yr, events, PYAR, rate, male, female, age11_15, age16_19, age20_24, wimd1, wimd2, wimd3, wimd4, wimd5,
+         urban, rural, bcu, cwmtaf, abuhb, powys, hduhb, sbuhb, cavuhb) -> eventsRatesTab
+
+eventsRatesTab
+
+
+```
+
+
+#Event rates by year, age group and sex
+```{r}
+
+#Denom
+cohort_events_alfyr %>% 
+  group_by(gndr_cd, agegp_for_yr, yr) %>% 
+  summarise(PYAR = sum(PYAR)) -> denomSexAgegpYr 
+
+events %>%  
+  group_by(gndr_cd, agegp_for_yr, yr) %>% 
+  summarise(cases = n()) -> tempSexAgegpYr
+
+tempSexAgegpYr %>%
+  inner_join(denomSexAgegpYr, by = c('gndr_cd','agegp_for_yr', 'yr')) %>%
+  mutate(rate = round(cases/PYAR*1000,2)) %>%
+  rowwise() %>% 
+  mutate(lci = round(poisson.test(cases, PYAR)[[4]][[1]]*1000,2),
+         uci = round(poisson.test(cases, PYAR)[[4]][[2]]*1000,2)) %>%
+  dplyr::select(agegp_for_yr, gndr_cd, yr, cases, PYAR, rate, lci, uci) -> eventRateSexAgeYrTab
+
+eventRateSexAgeYrTab
+
+
+```
+
+
+*WAST analysis*
+
+#WAST cases by outcome
+```{r}
+
+wast_cases %>% 
+  filter(yr >= 2018) %>% 
+  group_by(outcome) %>% 
+  summarise(n = n()) %>%
+  mutate(pct = round(n / sum(n) * 100, 1)) -> wast_outcomes_2018_2020
+
+```
+
+
+#Sankey diagram of outcomes from mental health presentations to WAST
+```{r}
+
+wast_cases %>% filter(yr >= 2018) -> wast_cases2018_2020
+
+#Sankey diagram
+sankeyValues <- c()
+sankeyValues <- c(sankeyValues, nrow(filter(wast_cases2018_2020, outcome == 'No need to transfer')))
+sankeyValues <- c(sankeyValues, nrow(filter(wast_cases2018_2020, outcome == 'Refused treatment')))
+sankeyValues <- c(sankeyValues, nrow(filter(wast_cases2018_2020, substr(outcome,1,2) == 'ED')))
+sankeyValues <- c(sankeyValues, nrow(filter(wast_cases2018_2020, outcome == 'ED -> self-discharge')))
+sankeyValues <- c(sankeyValues, nrow(filter(wast_cases2018_2020, outcome == 'ED -> discharge')))
+sankeyValues <- c(sankeyValues, nrow(filter(wast_cases2018_2020, outcome == 'ED -> admitted')))
+sankeyValues <- c(sankeyValues, nrow(filter(wast_cases2018_2020, outcome == 'ED -> unknown')))
+sankeyValues <- c(sankeyValues, nrow(filter(wast_cases2018_2020, outcome == 'Unknown')))
+
+sankey <- plot_ly(
+  type = 'sankey',
+  orientation = 'h',
+  node = list(
+    label = c(paste0('Ambulance ', nrow(wast_cases2018_2020), ' ', '(100%)'),
+              paste0('No need to transfer ', nrow(filter(wast_cases2018_2020, outcome == 'No need to transfer')), ' (',
+                     round(nrow(filter(wast_cases2018_2020, outcome == 'No need to transfer'))/nrow(wast_cases2018_2020)*100,0), '%)'),
+              paste0('Refused care ', nrow(filter(wast_cases2018_2020, outcome == 'Refused treatment')), ' (',
+                     round(nrow(filter(wast_cases2018_2020, outcome == 'Refused treatment'))/nrow(wast_cases2018_2020)*100,0), '%)'),
+              paste0('ED ', nrow(filter(wast_cases2018_2020, substr(outcome,1,2) == 'ED')), ' (',
+                     round(nrow(filter(wast_cases2018_2020, substr(outcome,1,2) == 'ED'))/nrow(wast_cases2018_2020)*100,0), '%)'),
+              paste0('Self discharged ', nrow(filter(wast_cases2018_2020, outcome == 'ED -> self-discharge')), ' (',
+                     round(nrow(filter(wast_cases2018_2020, outcome == 'ED -> self-discharge'))/nrow(wast_cases2018_2020)*100,0), '%)'),
+              paste0('Clinical discharge ', nrow(filter(wast_cases2018_2020, outcome == 'ED -> discharge')), ' (',
+                     round(nrow(filter(wast_cases2018_2020, outcome == 'ED -> discharge'))/nrow(wast_cases2018_2020)*100,0), '%)'),
+              paste0('Admitted ', nrow(filter(wast_cases2018_2020, outcome == 'ED -> admitted')), ' (',
+                     round(nrow(filter(wast_cases2018_2020, outcome == 'ED -> admitted'))/nrow(wast_cases2018_2020)*100,0), '%)'),
+              paste0('Unknown ', nrow(filter(wast_cases2018_2020, outcome == 'ED -> unknown')), ' (',
+                     round(nrow(filter(wast_cases2018_2020, outcome == 'ED -> unknown'))/nrow(wast_cases2018_2020)*100,0), '%)'),
+              paste0('Unknown/other ', nrow(filter(wast_cases2018_2020, outcome == 'Unknown')), ' (',
+                     round(nrow(filter(wast_cases2018_2020, outcome == 'Unknown'))/nrow(wast_cases2018_2020)*100,0), '%)')),
+    color = c('blue','blue','blue','blue','blue','blue','blue','blue','blue'),
+    x = c(0.1, 0.3, 0.3, 0.4, 0.8, 0.8, 0.8, 0.8, 0.3),
+    y = c(0.5, 0.75, 0.6, 0.25, 0.15, 0.35, 0.6, 0.7, 0.9),
+    pad=15,
+    thickness = 20,
+    line = list(color = 'black', width = 0.5)
+  ),
+  link = list(
+    source = c(0,0,0,3,3,3,3,0),
+    target = c(1,2,3,4,5,6,7,8),
+    value = sankeyValues
+  )
+)
+
+sankey <- sankey %>% layout(title = 'WAST outcomes',
+                            font = list(size=10)
+                            )
+
+
+sankey
+
+
+```
+
+
+
+
+
+
+
