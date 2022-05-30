@@ -36,11 +36,11 @@ SQL was written to query a DB2 database in SAIL Project 1330. R scripts were wri
 
 ## Getting started
 
-In SAIL Project 1330, ‘df_data_prep_cleanup.sql’ was run first to create the cohort and case lists for all outputs.
+In SAIL Project 1330, ‘create_cohort_and_caselist.sql’ was run first to create the cohort and case lists for all outputs.
 Then the following files were run for each publication output:
 - Health Foundation NDL Briefing [add link when published]:
   * In SAIL Project 1330:
-    * ‘HFbriefing_export.rmd’ was run to produce the outputs included in the Health Foundation Briefing 
+    * ‘NDLWales_HealthFoundationBriefing.rmd’ was run to produce the outputs included in the Health Foundation Briefing 
 - Academic publication [in progress]:
   * In SAIL Project 1330:
     * ‘df_obj1 wastpaper.rmd’ was run for the main analysis
@@ -49,12 +49,13 @@ Then the following files were run for each publication output:
     * ‘01_cypmh_wast_paper_trends.rmd’
     * ‘02_cypmh_wast_paper_totals.Rmd’
     * ‘03_cypmh_wast_paper_sms_trends.Rmd’
+    * '04_cypmh_wast_paper_outcomes.Rmd'
 - Slide deck on mental health crisis presentations across acute care services [in progress]:
   * In SAIL Project 1330:
-    * acute_services_analysis - produces rate tables (re-requested 9/5/2022 acute_services_events_export.Rmd)
-    * acute_services_risk_factor_model - produces adjusted risk ratio table
+    * 'acute_services_analysis.rmd' - produces rate tables (re-requested 9/5/2022 acute_services_events_export.Rmd)
+    * 'acute_services_risk_factor_model.rmd' - produces adjusted risk ratio table
   * Run locally:
-    * cypmh_slides_ppt.rmd (calls on files: ‘1.1_cypmh_all_trends.Rmd’, ‘1.2_cypmh_all_totals.Rmd’, ‘1.3_cypmh_sms_trends.Rmd’, ‘1.4_cypmh_sms_totals.Rmd’, ‘1.5_Obj3_slides.Rmd’, ‘1.6_cypmh_demographics.Rmd’)
+    * 'cypmh_slides_ppt.rmd' (calls on files: ‘1.1_cypmh_all_trends.Rmd’, ‘1.2_cypmh_all_totals.Rmd’, ‘1.3_cypmh_sms_trends.Rmd’, ‘1.4_cypmh_sms_totals.Rmd’, ‘1.5_Obj3_slides.Rmd’, ‘1.6_cypmh_demographics.Rmd’)
 
 
 ## Authors
