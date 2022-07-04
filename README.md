@@ -60,9 +60,8 @@ Then the following files were run for each publication output:
 
 ## Authors
 
-- Author 1 - [contact](name@domain.ac.uk)
-- Author 2 - [contact](name@domain.ac.uk)
-- Author 3 - [contact](name@domain.ac.uk)
+- David Florentin 
+- Laura Bentley - [Email](laura.bentley@wales.nhs.uk)
 
 ## License
 
