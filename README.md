@@ -7,7 +7,7 @@
 ## Project Description
 
 - This Networked Data Lab analysis by the NDL lab in Wales focusses on mental health crises in children and young people aged 11-24 years old in Wales between 2016 and 2020. There are three publications to the analysis:
-  *Contribution to the Health Foundation NDL Briefing *[add link when published]*
+  *Contribution to the [Health Foundation NDL Briefing](https://www.health.org.uk/publications/reports/improving-children-and-young-peoples-mental-health-services) 
   *Academic publication on mental health crisis attendance rates by Welsh Ambulance Service Trust *[in progress, add link when published]*
   *[Slide deck](https://github.com/HFAnalyticsLab/NDL_CYPMH_Wales/blob/main/Report/2022PHWNDLMentalHealth_final.pdfhttps://github.com/HFAnalyticsLab/NDL_CYPMH_Wales/blob/main/Report/2022PHWNDLMentalHealth_final.pdf) on mental health crisis presentations across acute care services (ambulance, emergency department and emergency inpatient admissions) 
 - Please note that these research outputs have not yet been peer-reviewed and should be treated as preliminary.
