@@ -55,7 +55,7 @@ Then the following files were run for each publication output:
     * 'acute_services_analysis.rmd' - produces rate tables (re-requested 9/5/2022 acute_services_events_export.Rmd)
     * 'acute_services_risk_factor_model.rmd' - produces adjusted risk ratio table
   * Run locally:
-    * 'cypmh_slides_ppt.rmd' (calls on files: ‘1.1_cypmh_all_trends.Rmd’, ‘1.2_cypmh_all_totals.Rmd’, ‘1.3_cypmh_sms_trends.Rmd’, ‘1.4_cypmh_sms_totals.Rmd’, ‘1.5_Obj3_slides.Rmd’, ‘1.6_cypmh_demographics.Rmd’)
+    * 'cypmh_slides_ppt.rmd' (calls on files: ‘1.1_cypmh_all_trends.Rmd’, ‘1.3_cypmh_sms_trends.R’, ‘1.5_Obj3_slides.R’, ‘1.6_cypmh_demographics.R’, ‘1.7_cypmh_funnel.R’, ‘1.8_cypmh_images.R’ - *1.5 must be run before the .Rmd*)
 
 
 ## Authors
