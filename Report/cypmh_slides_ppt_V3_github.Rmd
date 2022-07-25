@@ -1,0 +1,254 @@
+---
+title: "Children and Young People's Mental Health"
+author: "Exploring presentation in mental health crisis through linked routine health care data in Wales, NDL Wales Team"
+date: "`r format(Sys.time(), '%B, %Y')`"
+output: 
+  powerpoint_presentation:
+    reference_doc: phw_ppt_template.pptx
+    toc: true
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r, include=FALSE}
+library(knitr)
+library(patchwork)
+library(scales)
+
+# 1.2 and 1.4 not used in final version of slides
+# 1.5 needs to be run separately and saved rates graph inserted - when sourced graph is blank
+source("1.1_cypmh_all_trends.R")
+source("1.3_cypmh_sms_trends.R")
+source("1.6_cypmh_demographics.R")
+source("1.7_cypmh_funnel.R")
+source("1.8_cypmh_images.R")
+```
+
+```{r, include=FALSE}
+options(scipen = 999)
+```
+
+
+## Authors and acknowledgements
+
+NDL Wales includes Laura Bentley^1^, Bethan Carter^1^, Alisha R Davies^1^, David Florentin^1^, Karen Hodgson^1^, Jiao Song^1^, Ashley Akbari^2^, Claire Newman^2^, Joanna Dundon^3^, Gareth John^3^, Owen Davies^4^ and Lisa Trigg^4^. For this programme we have been supported by Stephen Clarke (Consultant Mental Health Nurse, Welsh Ambulance Services NHS Trust) and Prof Ann John (Swansea University), who have provided valuable guidance and input in the development of this work.
+
+**Affiliations**
+
+1. Research and Evaluation Division, Knowledge Directorate, Public Health Wales 
+2. Population Data Science Swansea University
+3. Digital Health and Care Wales
+4. Social Care Wales
+
+**Funded by the Health Foundation**  
+The Networked Data Lab Wales is  funded by the Health Foundation. The Health Foundation is an independent charity committed to bringing about better health and health care for people in the UK.
+
+This study makes use of anonymised data held in the Secure Anonymised Information Linkage (SAIL) Databank. We would like to acknowledge all the data providers who make anonymised data available for research.
+
+## About the Networked Data Lab Wales
+:::::::::::::: {.columns}
+::: {.column}
+- The Networked Data Lab programme is a collaborative network of analytical teams working together to use locally available linked datasets to address key issues facing health and care.
+- The Networked Data Lab Wales is a collaboration between:
+  - Public Health Wales (lead)
+  - Population Data Science Swansea University
+  - Digital Health and Care Wales
+  - Social Care Wales.
+:::
+::: {.column}
+![](ndl_map_txt.png)
+:::
+::::::::::::::
+
+## Children and young people's mental health
+
+**Introduction**  
+
+- In Wales, the impact of the COVID-19 pandemic on children and young people’s mental health has been identified as a priority by the Children’s Commissioner in her [**Coronavirus and Me**](https://www.childcomwales.org.uk/wp-content/uploads/2020/06/FINAL_formattedCVRep_EN.pdf) report and as part of the [**Welsh Government COVID-19 Reconstruction Plans**](https://gov.wales/coronavirus-reconstruction-challenges-and-priorities-html).
+- Mental health is a broad area, but the importance of effective mental health crisis support for children and young people has been outlined in both the [**Together for Mental Health**](https://gov.wales/sites/default/files/publications/2020-06/together-for-mental-health-delivery-plan-plain-english-version.pdf), and the [**Suicide and Self Harm Prevention Strategy for Wales**](https://gov.wales/sites/default/files/publications/2019-08/talk-to-me-2-suicide-and-self-harm-prevention-strategy-for-wales-2015-2020.pdf).
+- The [**Beyond the Call National Review**](https://gov.wales/sites/default/files/publications/2020-12/beyond-the-call.pdf) previously explored access to emergency services by people in crisis who have mental health or welfare concerns across multiple agencies in Wales and highlighted the need for a whole system approach to crisis care. 
+- Currently, within healthcare, the incidence of mental health crises in children and young people are only provided from the point of view of single services. By linking data across three healthcare datasets (ambulance, emergency department, and hospital admissions), there is the potential to develop a more system-level understanding of mental health crisis within acute health services. 
+- Such an approach aligns with a core principle of the [**Crisis Care Concordat National Action Plan for Wales**](https://gov.wales/sites/default/files/publications/2019-10/wales-crisis-care-concordat-national-action-plan-2019-2022.pdf), to use higher quality data and analysis to better understand whether people’s needs are being met in an effective and timely manner.
+
+
+
+## The aims of this study
+
+**Aim:** to use population-scale, individual-level anonymised linked data to describe mental health crisis presentation* of children and young people in acute care in Wales.  
+
+**Objectives:** 
+
+1. To describe the risk factors for mental health crisis events in children and young people across acute care services, from 2016-2020.
+2. To describe the annual trends in mental health crisis events in children and young people across acute care services, from 2016-2020.
+
+**Population:** Individuals were included in the study population for any time period(s) from 2016 to 2020 in which the following conditions were met:  
+
+- 11-24 years old.
+- living in Wales.
+
+Data sources used and full details of inclusion in the study population can be found in the supporting methodology document.
+
+\*For the purposes of this study, mental health crisis presentation includes accessing support via ambulance, attendances at emergency departments, and emergency hospital admissions.
+
+## Demographics
+
+:::::::::::::: {.columns}
+::: {.column}
+```{r, echo=FALSE}
+ft_pct_avg_long2
+```
+:::
+::: {.column}
+- From 2016 to 2020, 770,692 individuals contributed a total of `r sum(raw_cohort$personyears) %>% comma()` person years at risk (PYAR*) to the cohort.
+- A greater proportion of PYAR were contributed by males, those in the oldest age group (18-24 years), those in the most deprived quintile, and those living in urban areas.
+
+\* For full explanation of PYAR calculation, see the supporting methodology document.
+:::
+::::::::::::::
+
+## Mental health crisis events across services
+
+:::::::::::::: {.columns}
+::: {.column}
+- All mental health crisis events recorded across the three acute health service datasets from 2016-2020 were identified.
+- Mental health crisis events were defined as the presentation of mental health symptoms or associated behaviours requiring immediate treatment/care in an acute care service. The full list of codes used can be found in the supporting methodology document.
+* **If a patient had multiple records of a mental health crisis within a 2 day period, these were counted as one event.**
+- Combining person level events across acute care services provides a more comprehensive understanding of presentation in crisis than considering data from one service alone.
+- Across all services, a total of `r rowSums(df_services) %>% comma()` mental health crisis presentations were identified. After removing linked events, a total of `r df_all_service %>% filter(category == 'overall') %>% select(events) %>% sum() %>% comma()` unique events were identified (Figure 1).
+:::
+::: {.column}
+![](funnel_txt.png)  
+:::
+::::::::::::::
+
+
+# Results
+
+## The highest risk factor for presenting in mental health crisis was substance misuse services (SMS) history
+
+:::::::::::::: {.columns}
+::: {.column}
+- Risk of mental health crisis presentation varied significantly by demographics. 
+- The largest risk factor was previous history of referral or assessment within SMS, with an incidence rate ratio of 9.89 compared to those without a SMS history.
+- Risk of mental health crisis events was also associated with:
+  - being female 
+  - older age groups of children and young people 
+  - living in areas of higher deprivation 
+  - living in an urban area. 
+- For full details of incidence rate ratios, see slide 19.
+- These patterns are similar to the risk factors described in [research](https://adc.bmj.com/content/archdischild/105/4/347.full.pdf) for self-harm presentations across healthcare settings in Wales.
+:::
+::: {.column}
+![](risk_txt.png)
+:::
+::::::::::::::
+
+## Rates of mental health crisis events were relatively stable from 2016-2019
+
+:::::::::::::: {.columns}
+::: {.column}
+- There were `r df_all_service %>% filter(category == 'overall' & yr < "2020") %>% select(events) %>% sum() %>% comma()` mental health crisis events from 2016-2019; the rate was relatively stable at `r df_all_service %>% filter(category == "overall" & yr < 2020) %>% group_by(level) %>% mutate(total_events = sum(events), total_pyar = sum(pyar), total_rate = total_events / total_pyar * 1000, total_rate = round(total_rate, digits = 2)) %>% select(category, level, total_rate) %>% distinct() %>% pull(total_rate)` events per 1,000 PYAR across the 4 years.
+- The rate of mental health crisis events declined in 2020, to `r df_all_service %>% filter(category == 'overall' & yr == "2020") %>% mutate(rate = round(rate_1000pyar, digits = 2)) %>% pull(rate)` events per 1,000 PYAR. 
+- This decline is consistent with other studies describing presentation with self-harm in acute services, in [England](https://www.medrxiv.org/content/10.1101/2020.12.10.20247155v1.full-text) and [Wales](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0266967#pone.0266967.s007). However, [NHS data](https://nccu.nhs.wales/qais/events/camhsbc2021/camhs-benchmarking-2021-slide-deck/) shows referrals to children and young peoples' mental health services in the UK, after an initial steep fall, returned to above pre-pandemic rates in September 2020 when restrictions eased temporarily.
+- Changes in 2020 may be driven by the impact of the COVID-19 pandemic on multiple factors, including patterns of mental health crisis presentations, changes to help-seeking behaviour, availability of services in the NHS, and accessibility to referral routes (e.g. social care, policing, schools). 
+
+:::
+::: {.column}
+```{r, echo=FALSE, out.width="100%", fig.align='center'}
+print(line_overall_ppt)
+```
+:::
+::::::::::::::
+
+## Rates were consistently higher in females, and varied by age in both sexes
+
+:::::::::::::: {.columns}
+::: {.column}
+- Our data shows that females have higher rates of mental health crisis than males, across all age groups.
+- Within females, the 16-17 and 18-24 year age groups had rates roughly twice as high as the 11-15 year age group. In males, rates increased with increasing age group.
+- The decline in the rate of mental health crisis events in 2020 was evidenced in all age groups in males, and was greatest amongst those aged 18-24 years. In females, the decline was only evidenced in the older age groups, and was also greatest amongst those aged 18-24 years.
+- Continuing to capture differences in trends by sex is important given evidence [internationally](https://psycnet.apa.org/fulltext/2021-35525-006.pdf), from the [UK](https://www.thelancet.com/journals/lanpub/article/PIIS2468-2667(20)30288-7/fulltext) and from [Wales](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0266967#pone.0266967.ref009) indicates that the impact of the pandemic may have been greater amongst females.
+:::
+::: {.column}
+```{r, echo=FALSE, out.width="100%", fig.align='center'}
+print(line_age_sex_ppt)
+```
+:::
+::::::::::::::
+
+## Rates of mental health crisis events increased with deprivation
+
+:::::::::::::: {.columns}
+::: {.column}
+- Over all years, the rate of mental health crisis events was consistently highest in the most deprived areas. In 2020, a decline in the rate of mental health crisis events was evident across all quintiles of deprivation.
+- This is in line with the wider evidence, which describes a [link between higher levels of deprivation and poorer mental health](https://research.senedd.wales/research-articles/poverty-and-mental-health-it-s-a-two-way-street/), including [increased suicide risk](https://media.samaritans.org/documents/Socioeconomic_disadvantage_and_suicidal_behaviour_bilingual.pdf). Those from more disadvantaged backgrounds have also been [more negatively impacted](https://phwwhocc.co.uk/whiasu/wp-content/uploads/sites/3/2021/08/Research-brief-Alma-Economics-CYP-mental-wellbeing-during-Covid19-English.pdf) by the pandemic, so continuing to examine differences by deprivation is a priority.
+- In our analysis, a significant decrease in the rate of mental health crisis between 2016-2019 was evident in the most deprived quintile. Conversely, rates slightly increased in the three least deprived areas over the same period. Further analyses are underway to ascertain factors which may explain this pattern across deprivation quintiles. 
+
+:::
+::: {.column}
+```{r, echo=FALSE, out.width="100%", fig.align='center'}
+print(line_wimd_ppt)
+```
+:::
+::::::::::::::
+
+## Rates of mental health crisis events were higher in urban areas than rural areas
+
+:::::::::::::: {.columns}
+::: {.column}
+- Evidence from [Great Britain](https://www.cambridge.org/core/journals/psychological-medicine/article/abs/urbanrural-mental-health-differences-in-great-britain-findings-from-the-national-morbidity-survey/B5BC39E3E56DE08DD6A14013F5C496A6) and the [UK](https://www.centreformentalhealth.org.uk/sites/default/files/publication/download/CentreforMH_TheSpaceBetweenUs_Rurality.pdf) suggests challenges to mental health may vary between urban and rural environments across Wales.
+- We found that rates of mental health crisis were consistently higher in urban areas. 
+- From 2016-2019, there was no significant change in the rate of mental health crisis events by rurality. In 2020, there was a similar significant decrease in the rate of mental health crisis events in both rural and urban populations.
+:::
+::: {.column}
+```{r, echo=FALSE, out.width="100%", fig.align='center'}
+print(line_ruc_ppt)
+```
+:::
+::::::::::::::
+
+## Rates of mental health crisis events was higher in those with SMS history
+
+:::::::::::::: {.columns}
+::: {.column}
+- [International evidence](https://substanceabusepolicy.biomedcentral.com/articles/10.1186/s13011-020-00282-6) indicates significantly higher rates of mental health concerns among young women compared to men in substance misuse treatment.
+- Our analysis shows that this is also the case in Wales; mental health crisis rates in those with SMS history were higher in females than males.
+- From 2016 to 2019 in those with SMS history, there was a significant decrease in the rate of mental health crisis events overall and by sex. This was not evident in those with no SMS history. Further research is required to ascertain the cause of this difference.
+- In 2020, there was a significant decline in the rate of mental health crisis events in females with SMS history.
+:::
+::: {.column}
+```{r, echo=FALSE, out.width="100%", fig.align='center'}
+print(line_sms_overall_sex_ppt)
+```
+:::
+::::::::::::::
+
+## Implications
+
+This is the first population level study in Wales capturing children and young people's mental health crisis incidence across the acute care system. By bringing together data across different emergency services, this analysis provides a comprehensive overview of mental health crisis presentation to emergency health services in Wales.   
+
+Our analyses demonstrate and quantify the consistent inequalities in mental health crisis, with higher rates of presentation in vulnerable population groups, including those in the most deprived areas and those with a history of SMS. There was some evidence of changes over time in these groups, which warrant further exploration to determine to what extent these reflect changes in mental health crisis, presentation routes, or new models of care.
+
+During 2020, a decline in presentation with mental health crisis amongst children and young people in Wales was evident across all age groups, sex, deprivation and urban/rural areas. More in-depth studies are needed to fully understand the extent to which this was due to changes in the incidence of mental health crisis, or changes to the way people in mental health crisis did or did not seek help.
+
+
+## Strengths and limitations
+
+A key **strength** of this study is that it brings together ambulance and emergency care to help provide a comprehensive picture of acute care response to mental health crisis in children and young people in Wales.  
+
+Nonetheless, as it draws on routine health and care data, there are a number of **limitations**:
+
+- Our definition of mental health crisis places emphasis on those accessing acute medical care. It is [estimated that only one in eight children and young people attend hospital following a self-harm episode in the community](https://www.researchgate.net/publication/228060626_Self-harm_and_suicide_in_adolescents), and they are most likely to attend after an overdose. This means we are likely to have underestimated the number of children and young people experiencing mental health crisis.
+- We also do not capture children and young people presenting in mental health crisis to Child and Adolescent Mental Health Services (CAMHS), primary care, community care, schools, and third sector organisations, e.g. Samaritans.
+- We relied on Advanced Medical Priority Dispatch System (AMPDS)  codes in ambulance data. AMPDS codes are for prioritisation of ambulance dispatch and not for clinical diagnosis purposes. They are reliant on information provided by callers and, therefore, may be inaccurate.
+- We also recognise that the findings will reflect coding practices, patient presentation, access and availability of services, and referral pathways. Therefore, these findings should not be considered in isolation but rather alongside wider evidence.
+
+## For reference: Cohort demographic distributions & incidence rate ratios
+
+```{r, echo=FALSE, fig.cap="Average demographic distribution of the study population from 2016-2020"}
+ft_demographics3_mh_irr
+```
